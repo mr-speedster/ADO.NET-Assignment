@@ -11,114 +11,121 @@ namespace ADO.NET_Assignment
 {
     internal class CustomerService
     {
+        private static SqlConnection GetConnection()
+        {
+            SqlConnection connection = new SqlConnection(ConfigurationManager.ConnectionStrings["DefaultDBConnection"].ConnectionString);
+            connection.Open();
+            return connection;
+        }
+        private static int ExecuteStoredProcedure(string storedProcedureName, List<SqlParameter> parameters)
+        {
+            using (SqlConnection connection = GetConnection())
+            {
+                using (SqlCommand command = connection.CreateCommand())
+                {
+                    command.CommandType = CommandType.StoredProcedure;
+                    command.CommandText = storedProcedureName;
+                    command.Parameters.AddRange(parameters.ToArray());
+                    try
+                    {
+                        return command.ExecuteNonQuery();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error: {ex.Message}");
+                        return -1;
+                    }
+                }
+            }
+        }
+
         public static bool BookTicket(string customerName, string mobileNo, string emailId, int airTripsId)
         {
-            using (SqlConnection connection = new SqlConnection(ConfigurationManager.ConnectionStrings["DefaultDBConnection"].ConnectionString))
+            List<SqlParameter> parameters = new List<SqlParameter>
+        {
+            new SqlParameter("@CustomerName", customerName),
+            new SqlParameter("@MobileNo", mobileNo),
+            new SqlParameter("@EmailId", emailId),
+            new SqlParameter("@AirTripsId", airTripsId)
+        };
+
+            int result = ExecuteStoredProcedure("sp_Insert_Customers", parameters);
+
+            if (result > 0)
             {
-                SqlCommand command = connection.CreateCommand();
-                command.CommandType = CommandType.StoredProcedure;
-                command.CommandText = "sp_Insert_Customers";
-                command.Parameters.AddWithValue("@CustomerName", customerName);
-                command.Parameters.AddWithValue("@MobileNo", mobileNo);
-                command.Parameters.AddWithValue("@EmailId", emailId);
-                command.Parameters.AddWithValue("@AirTripsId", airTripsId);
-                try
-                {
-                    connection.Open();
-                    command.ExecuteNonQuery();
-                    Console.WriteLine("Record Inserted successfully!");
-                    return true;
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error: {ex.Message}");
-                    return false;
-                }
+                Console.WriteLine("Record Inserted successfully!");
+                return true;
             }
+
+            return false;
         }
+
         public static int UpdateRating(int airTripId, int customerId, int rating)
         {
-            using (SqlConnection connection = new SqlConnection(ConfigurationManager.ConnectionStrings["DefaultDBConnection"].ConnectionString))
+            List<SqlParameter> parameters = new List<SqlParameter>
+        {
+            new SqlParameter("@AirTripId", airTripId),
+            new SqlParameter("@CustomerId", customerId),
+            new SqlParameter("@Rating", rating)
+        };
+
+            int result = ExecuteStoredProcedure("sp_Update_Rating", parameters);
+            if (result > 0)
             {
-                SqlCommand command = connection.CreateCommand();
-                command.CommandType = CommandType.StoredProcedure;
-                command.CommandText = "sp_Update_Rating";
-                command.Parameters.AddWithValue("@AirTripId", airTripId);
-                command.Parameters.AddWithValue("@CustomerId", customerId);
-                command.Parameters.AddWithValue("@Rating", rating);
-                try
-                {
-                    connection.Open();
-                    command.ExecuteNonQuery();
-                    Console.WriteLine("Record updated successfully!");
-                    return 1;
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error: {ex.Message}");
-                    return -1;
-                }
+                Console.WriteLine("Record updated successfully!");
+                return 1;
             }
+            return -1;
         }
+
         public static int CheckAvailability(string from, string to, DateTime departureDateTime)
         {
-            using (SqlConnection connection = new SqlConnection(ConfigurationManager.ConnectionStrings["DefaultDBConnection"].ConnectionString))
+            List<SqlParameter> parameters = new List<SqlParameter>
             {
-                SqlCommand command = connection.CreateCommand();
-                command.CommandType = CommandType.StoredProcedure;
-                command.CommandText = "sp_Check_Availability";
-                command.Parameters.AddWithValue("@From", from);
-                command.Parameters.AddWithValue("@To", to);
-                command.Parameters.AddWithValue("@DepartureDateTime", departureDateTime);
-                SqlParameter rowCount = new SqlParameter("@rowCount", SqlDbType.Int);
-                rowCount.Direction = ParameterDirection.Output;
-                command.Parameters.Add(rowCount);
-                try
-                {
-                    connection.Open();
-                    command.ExecuteNonQuery();
-                    if ((int)rowCount.Value > 0)
-                        return (int)rowCount.Value;
-                    else
-                        return -1;
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error: {ex.Message}");
-                    return -1;
-                }
+                new SqlParameter("@From", from),
+                new SqlParameter("@To", to),
+                new SqlParameter("@DepartureDateTime", departureDateTime)
+            };
+
+            SqlParameter rowCount = new SqlParameter("@rowCount", SqlDbType.Int);
+            rowCount.Direction = ParameterDirection.Output;
+            parameters.Add(rowCount);
+
+            ExecuteStoredProcedure("sp_Check_Availability", parameters);
+            if ((int)rowCount.Value > 0)
+            {
+                return (int)rowCount.Value;
             }
+            return -1;
         }
+
         public static int? FetchAirlinesRating(int airTripId)
         {
-            using (SqlConnection connection = new SqlConnection(ConfigurationManager.ConnectionStrings["DefaultDBConnection"].ConnectionString))
+            List<SqlParameter> parameters = new List<SqlParameter>
             {
-                SqlCommand command = connection.CreateCommand();
-                command.CommandType = CommandType.StoredProcedure;
-                command.CommandText = "sp_Get_Rating";
-                command.Parameters.AddWithValue("@AirTripId", airTripId);
-                SqlParameter rating = new SqlParameter("@Rating", SqlDbType.Int);
-                rating.Direction = ParameterDirection.Output;
-                command.Parameters.Add(rating);
-                try
+                new SqlParameter("@AirTripId", airTripId)
+            };
+
+            SqlParameter rating = new SqlParameter("@Rating", SqlDbType.Int);
+            rating.Direction = ParameterDirection.Output;
+            parameters.Add(rating);
+
+            ExecuteStoredProcedure("sp_Get_Rating", parameters);
+
+            if ((int)rating.Value > 0)
+            {
+                if (DBNull.Value.Equals(rating.Value))
                 {
-                    connection.Open();
-                    command.ExecuteNonQuery();
-                    if (DBNull.Value.Equals(rating.Value))
-                    {
-                        return null;
-                    }
-                    else
-                    {
-                        return (int)rating.Value;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error: {ex.Message}");
                     return null;
                 }
+                else
+                {
+                    return (int)rating.Value;
+                }
             }
+
+            return null;
         }
     }
+
 }

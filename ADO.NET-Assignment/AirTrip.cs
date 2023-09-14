@@ -1,66 +1,63 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Data.SqlClient;
-using System.Net;
 using System.Configuration;
 using System.Data;
+using System.Data.SqlClient;
 
 namespace ADO.NET_Assignment
 {
     internal class AirTrip
     {
-        public static bool AddNewAirTrip(string airLines, int availability, DateTime departureDateTime, string from, string to)
+        private static SqlConnection GetConnection()
         {
-            using (SqlConnection connection = new SqlConnection(ConfigurationManager.ConnectionStrings["DefaultDBConnection"].ConnectionString))
+            SqlConnection connection = new SqlConnection(ConfigurationManager.ConnectionStrings["DefaultDBConnection"].ConnectionString);
+            connection.Open();
+            return connection;
+        }
+        private static bool ExecuteStoredProcedure(string storedProcedureName, params SqlParameter[] parameters)
+        {
+            using (SqlConnection connection = GetConnection())
             {
-                SqlCommand command = connection.CreateCommand();
-                command.CommandType = CommandType.StoredProcedure;
-                command.CommandText = "Insert_AirTrip";
-                command.Parameters.AddWithValue("@Airlines", airLines);
-                command.Parameters.AddWithValue("@Availability", availability);
-                command.Parameters.AddWithValue("@DepartureDateTime", departureDateTime);
-                command.Parameters.AddWithValue("@FromLocation", from);
-                command.Parameters.AddWithValue("@ToLocation", to);
-                try
+                using (SqlCommand command = connection.CreateCommand())
                 {
-                    connection.Open();
-                    command.ExecuteNonQuery();
-                    Console.WriteLine("Record inserted successfully!");
-                    return true;
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error: {ex.Message}");
-                    return false;
+                    command.CommandType = CommandType.StoredProcedure;
+                    command.CommandText = storedProcedureName;
+                    command.Parameters.AddRange(parameters);
+                    try
+                    {
+                        command.ExecuteNonQuery();
+                        Console.WriteLine("Record operation successful!");
+                        return true;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error: {ex.Message}");
+                        return false;
+                    }
                 }
             }
         }
-        
+        public static bool AddNewAirTrip(string airLines, int availability, DateTime departureDateTime, string from, string to)
+        {
+            SqlParameter[] parameters =
+            {
+                new SqlParameter("@Airlines", airLines),
+                new SqlParameter("@Availability", availability),
+                new SqlParameter("@DepartureDateTime", departureDateTime),
+                new SqlParameter("@FromLocation", from),
+                new SqlParameter("@ToLocation", to)
+            };
+
+            return ExecuteStoredProcedure("Insert_AirTrip", parameters);
+        }
         public static bool UpdateAvailability(int airTripId, int availability)
         {
-            using (SqlConnection connection = new SqlConnection(ConfigurationManager.ConnectionStrings["DefaultDBConnection"].ConnectionString))
+            SqlParameter[] parameters =
             {
-                SqlCommand command = connection.CreateCommand();
-                command.CommandType = CommandType.StoredProcedure;
-                command.CommandText = "sp_Update_Availability";
-                command.Parameters.AddWithValue("@airTripId", airTripId);
-                command.Parameters.AddWithValue("@availability", availability);
-                try
-                {
-                    connection.Open();
-                    command.ExecuteNonQuery();
-                    Console.WriteLine("Record updated successfully!");
-                    return true;
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error: {ex.Message}");
-                    return false;
-                }
-            }
+                new SqlParameter("@airTripId", airTripId),
+                new SqlParameter("@availability", availability)
+            };
+
+            return ExecuteStoredProcedure("sp_Update_Availability", parameters);
         }
     }
 }
