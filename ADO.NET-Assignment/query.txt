@@ -1,0 +1,147 @@
+﻿create table AirTrips(
+	Id int primary key identity(10001,1),
+	Airlines varchar(100) not null,
+	Availability int not null,
+	DepartureDateTime datetime not null,
+	Fromlocation varchar(100) not null,
+	Tolocation varchar(100) not null,
+	rating float null
+)
+
+create table Customers(
+	Id int primary key identity,
+	CustomerName Varchar(100) not null,
+	MobileNo Char(10) Unique not null,
+	EmailId Varchar(150) Unique not null,
+	AirTripsId Int foreign key references AirTrips(Id)
+)
+
+----------------------------------------------------AirTrips Stored Procedure------------------------------------------------------------
+
+create procedure [dbo].[Insert_AirTrip]
+(
+	@Airlines           varchar(100),
+	@Availability       int,
+	@DepartureDateTime  datetime,
+	@Fromlocation       varchar(100) ,
+	@Tolocation         varchar(100) 
+)
+as
+begin
+	insert into AirTrips(Airlines,Availability,DepartureDateTime,Fromlocation,Tolocation) 
+	values (@Airlines,@Availability,@DepartureDateTime,@Fromlocation,@Tolocation);
+end
+
+
+------------------------------------------------------------------------------------------------------------------------------------------
+create proc [dbo].[sp_Update_Availability]
+(
+	@airTripId int,
+	@availability int
+)
+as
+begin
+	declare @rowCount int = 0
+	begin try
+		set @rowCount = (select count(1) from AirTrips with (nolock) where Id = @airTripId)
+		if(@rowCount > 0)
+		begin
+			begin transaction
+				update AirTrips set Availability = @availability where Id = @airTripId;
+			commit transaction
+		end
+	end try
+	begin catch
+		rollback transaction
+	end catch
+end
+
+--------------------------------------------------------Customers Stored Procedure---------------------------------------------------------
+
+Create procedure [dbo].[sp_Insert_Customers]
+(
+	@CustomerName	Varchar(100),
+	@MobileNo		Char(10),
+	@EmailId		Varchar(150),
+	@AirTripsId		Int
+)
+as
+begin
+	declare @rowCount int = 0;
+	declare @availability int = 0;
+	begin try
+		set @rowCount = (select count(1) from AirTrips with(nolock) where Id = @AirTripsId)
+		if(@rowCount > 0)
+		begin 
+			set @availability = (select Availability from AirTrips where Id = @AirTripsId)
+			begin try
+				if( @availability is not null and @availability > 0)
+				begin
+					begin transaction
+						set @availability = @availability - 1;
+						update AirTrips set Availability = @availability where Id = @AirTripsId;
+						insert into Customers(CustomerName,MobileNo,EmailId,AirTripsId) values(@CustomerName,@MobileNo,@EmailId,@AirTripsId);
+					commit transaction
+				end
+			end try
+			begin catch
+				print 'Seat not available'
+				rollback transaction
+			end catch
+		end
+	end try
+	begin catch
+		print 'Something went wrong'
+	end catch
+end
+
+
+------------------------------------------------------------------------------------------------------------------------------------------
+create procedure [dbo].[sp_Update_Rating]
+(
+	 @AirTripId		int,
+	 @CustomerId	int,
+	 @Rating		int
+)
+as
+begin
+	declare @airTripRowCount int = (select count(1) from AirTrips where Id = @AirTripId);
+	declare @customerRowCount int = (select count(1) from Customers where Id = @CustomerId);
+	if (@airTripRowCount > 0 and @customerRowCount > 0)
+	begin
+		begin try
+			begin transaction
+				update AirTrips set rating = @Rating where Id = @AirTripId;
+			commit transaction
+		end try
+		begin catch
+			rollback transaction
+		end catch
+	end
+end
+
+
+------------------------------------------------------------------------------------------------------------------------------------------
+create proc [dbo].[sp_Check_Availability]
+(
+	@From				varchar(100), 
+	@To					varchar(100), 
+	@DepartureDateTime	datetime,
+	@RowCount int output
+)
+as
+begin
+	set @RowCount = (select Availability from AirTrips with (nolock) where Fromlocation=@From and Tolocation = @To and DepartureDateTime = @DepartureDateTime);
+end
+
+
+------------------------------------------------------------------------------------------------------------------------------------------
+create procedure [dbo].[sp_Get_Rating]
+(
+	 @AirTripId		int,
+	 @Rating		int output
+)
+as
+begin
+	set @Rating = (select rating from AirTrips where Id = @AirTripId);
+end
